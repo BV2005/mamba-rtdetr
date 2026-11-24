@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+# data, training outputs and generated configs (train_full_coco.sh)
+data/coco/
+outputs/
+configs/generated/
+*.pth
+*.pt
+# archives, editors, OS
+*.zip
+*.tgz
+*.tar.gz
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

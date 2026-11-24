@@ -1,0 +1,77 @@
+# Baseline for MambaFusion-DETR v2: the SAME model, data and training recipe with RT-DETR's original fusion block
+# (CSPRepLayer / RepC3) in the four CCFF fusion positions. Only encoder.fusion and output_dir differ from
+# rtdetr_mamba_r50_cocominitrain_v2.yaml (lr_mamba applies to the fusion blocks in both).
+model:
+  backbone:
+    name: resnet50
+    pretrained: true
+    freeze_at: 1
+    freeze_bn: true
+  encoder:
+    hidden_dim: 256
+    num_heads: 8
+    dim_feedforward: 1024
+    dropout: 0.0
+    d_state: 16
+    d_conv: 4
+    expand: 2
+    mlp_ratio: 2
+    num_scans: 4
+    fusion: repc3           # the baseline: RT-DETR's CSPRepLayer in place of MambaFusionBlock
+    use_checkpoint: false
+  decoder:
+    hidden_dim: 256
+    num_queries: 300
+    num_decoder_layers: 6
+    num_heads: 8
+    dim_feedforward: 1024
+    dropout: 0.0
+    num_levels: 3
+    use_denoising: true
+    dn_groups: 5
+    dn_number: 200
+    label_noise_ratio: 0.2
+    box_noise_scale: 0.4
+    use_enc_aux_loss: true
+  num_classes: 80
+data:
+  train_img_dir: ./data/coco/train2017          # full COCO train2017 or just the 25k minitrain images: only
+                                               # the images in train_ann_file are used
+  train_ann_file: ./data/coco/annotations/instances_minitrain2017.json   # make_minitrain_annotations.py
+  val_img_dir: ./data/coco/val2017
+  val_ann_file: ./data/coco/annotations/instances_val2017.json           # official, unchanged
+  img_size: 640
+  batch_size: 20
+  num_workers: 8           # v2: the zoom-out / crop augmentation needs more loader processes (was 2, Kaggle)
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  strong_aug: true        # v2: zoom-out + IoU crop + box sanitising, jitter p=0.5 (data/transforms.py)
+training:
+  epochs: 36
+  lr: 0.0001
+  lr_backbone: 1.0e-05
+  lr_mamba: 0.0001        # v2: = lr (was 1e-5, the backbone's rate, for freshly initialised blocks)
+  weight_decay: 0.0001
+  lr_drop:
+  - 27                    # v2: inside the run (was 60 with 30 epochs: never reached)
+  clip_max_norm: 0.1
+  warmup_epochs: 1
+  save_interval: 1         # v2: a checkpoint every epoch (rotation keeps the last 3)
+  keep_last_n_checkpoints: 3
+  log_interval: 10
+  use_amp: true
+  use_ema: true            # v2: with decay warm-up and buffers (engine/trainer.py)
+  ema_decay: 0.9999
+  ema_warmups: 2000
+loss:
+  cost_class: 2.0
+  cost_bbox: 5.0
+  cost_giou: 2.0
+  weight_class: 2.0
+  weight_bbox: 5.0
+  weight_giou: 2.0
+  focal_alpha: 0.75
+  focal_gamma: 2.0
+  dn_loss_weight: 1.0
+output_dir: ./outputs/repc3_baseline_cocominitrain
